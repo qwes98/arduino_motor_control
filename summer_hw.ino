@@ -10,7 +10,8 @@ int Mcount;
 int MFRE;
 unsigned int MYUBRR = 0;
 unsigned char a[20];
-int readpacket[20];
+unsigned char readpacket[20];
+int curDegreeBuf = 0;
 
 // Values from matlab
 unsigned int MIDc;
@@ -25,8 +26,8 @@ void setup() {
 
   pinMode(controlpin, OUTPUT);
   pinMode(ledpin, OUTPUT);
-  Serial.begin(1000000);
-  Serial1.begin(1000000);
+  Serial.begin(1000000);    // matlab <-> arduino
+  Serial1.begin(1000000);   // arduino <-> motor
 
   noInterrupts();
   TCCR1A = 0; //timer counter control register 초기화
@@ -118,7 +119,7 @@ void bulkRead()
   a[5] = 0x00;
   a[6] = 0x02;   // first module data length
   a[7] = 0x01;   // first module id
-  a[8] = 0x24;   // 현재 위치
+  a[8] = 0x24;   // data starting address
 
   unsigned int sum = 0;
   for(int i = 2; i < 9; i++)
@@ -127,51 +128,15 @@ void bulkRead()
   }
   sum = ~byte(sum);
   a[9] = sum;
+  
+  digitalWrite(controlpin, HIGH);
+  
   for(int ii = 0; ii < 10; ii++)
   {
     USART_Transmit_for_1(a[ii]);
   }
-}
-
-ISR(TIMER1_COMPA_vect)
-{
-  ISR_cnt++;
-  if(ISR_cnt % 5 == 1)
-  {
-    // TODO: 여기에 모터 write 코드 넣어주어야
-    //motor_goal = dynamixel_CF_movement(MMDEGREE, MMFRE, ISR_cnt, pastDEGREE);
-    //writeMotor(MIDc, motor_goal);
-  }
-  else if(ISR_cnt % 5 == 3)
-  {
-    // TODO: 모터 read?
-  }
-  // 50ms마다 한번 씩 매트랩으로 값을 쏴준다
-  else if(ISR_cnt % 50 == 4)
-  {
-    send_data_to_matlab = true;
-  }
-  
-  // TODO: understand completely
-  if(Tcnt < Mcount)   // ISR -> 1ms마다 호출 => goal을 반주기로 나눠서 여러번 보냄?
-  {
-    Tcnt++;
-    if((MMDEGREE - pastDEGREE) > 0)
-    {
-      w = pastDEGREE + (MMDEGREE - pastDEGREE)/2.0*(1-cos((2*3.14/(MMFRE*10.0))*Tcnt)); 
-    }
-    else
-    { 
-      w = pastDEGREE - (-1*(MMDEGREE - pastDEGREE))/2.0*(1-cos((2*3.14/(MMFRE*10.0))*Tcnt));
-    }
-    writeMotor(MIDc, w);
-  }
-  else
-  {
-    pastDEGREE = w;
-    Serial.flush();
-  }
- 
+  delayMicroseconds(50);
+  digitalWrite(controlpin, LOW);
 }
 
 void blinkLed()
@@ -247,17 +212,91 @@ void data_reading_from_matlab()
   }
 }
 
+void data_reading_from_motor_buf()
+{
+  if(Serial1.available() > 0)
+  {
+    if(Serial1.read() == 0xFF && Serial1.peek() == 0xFF)  // 두번째 peek으로 안하고 read로 하면 문제 생김
+    {
+      for(int i = 0; i < 7;)
+      {
+        if(Serial1.available() > 0)
+        {
+          readpacket[i] = Serial1.read();
+          //Serial.println(readpacket[i]);
+          i++;
+        }
+      }
+      unsigned char sumOfPacket = 0;
+      
+      for(int i = 1; i < 6; i++)
+      {
+        sumOfPacket += readpacket[i];
+      }
+      sumOfPacket = ~byte(sumOfPacket);   // 다시 넣어주어야 ~byte연산한 비트들을 unsigned char로 해석하게 되고 비교시 문제가 없음
+     
+      if(sumOfPacket == readpacket[6])
+      {
+        int tmp = readpacket[5] << 8;
+        curDegreeBuf = tmp + readpacket[4]; 
+      }
+    }
+  }
+}
+
 void data_sending_to_matlab()
 {
-  //Serial.println(readpacket[1]);
-  //Serial.println(readpacket[2]);
+  Serial.println(round(curDegreeBuf*360.0/4096));
   send_data_to_matlab = false;
+}
+
+ISR(TIMER1_COMPA_vect)
+{
+  ISR_cnt++;
+  if(ISR_cnt % 5 == 1)
+  {
+    //motor_goal = dynamixel_CF_movement(MMDEGREE, MMFRE, ISR_cnt, pastDEGREE);
+    //writeMotor(MIDc, motor_goal);
+
+    // TODO: understand completely
+    if(Tcnt < Mcount)   // ISR -> 5ms마다 호출 => goal을 반주기로 나눠서 여러번 보냄?
+    {
+      Tcnt++;
+      if((MMDEGREE - pastDEGREE) > 0)
+      {
+       w = pastDEGREE + (MMDEGREE - pastDEGREE)/2.0*(1-cos((2*3.14/(MMFRE*10.0))*Tcnt)); 
+      }
+      else
+      { 
+        w = pastDEGREE - (-1*(MMDEGREE - pastDEGREE))/2.0*(1-cos((2*3.14/(MMFRE*10.0))*Tcnt));
+      }
+      writeMotor(MIDc, w);
+    } 
+    else
+    {
+      pastDEGREE = w;
+      Serial.flush();
+    }
+    
+  }
+  else if(ISR_cnt % 5 == 3)
+  {
+    bulkRead();
+  }
+  // 50ms마다 한번 씩 매트랩으로 값을 쏴준다
+  else if(ISR_cnt % 50 == 10)   // bulkRead하는 시점과 조금 텀이 있어야!
+  {
+    send_data_to_matlab = true;
+  }
+ 
 }
 
 void loop() 
 {
   // put your main code here, to run repeatedly:
   data_reading_from_matlab();
+
+  data_reading_from_motor_buf();
 
   if(send_data_to_matlab == true)
   {
