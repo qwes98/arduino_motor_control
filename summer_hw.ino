@@ -2,16 +2,16 @@
 #define BAUD 1000000
 
 bool send_data_to_matlab = false;
-int ISR_cnt = 0;
+unsigned long ISR_cnt = 0;    // ISR_cnt를 int로 하면 매트랩 정지 현상 생김
 int Tcnt = 0;
 int pastDEGREE;
-unsigned int w;  // 지금 움직여야 하는 모터 각도
+double w;  // 지금 움직여야 하는 모터 각도
 int Mcount;
 int MFRE;
 unsigned int MYUBRR = 0;
 unsigned char a[20];
 unsigned char readpacket[20];
-int curDegreeBuf = 0;
+unsigned int curDegreeBuf = 0;
 
 // Values from matlab
 unsigned int MIDc;
