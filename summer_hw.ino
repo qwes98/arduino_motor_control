@@ -100,16 +100,12 @@ void writeMotor(unsigned int ID, unsigned int pos)
   }
   sum = ~byte(sum & 0x00FF);
   a[8] = sum;
-
-  //digitalWrite(controlpin, HIGH);
   
   for(int ii = 0; ii < 9; ii++)
   {
     USART_Transmit_for_1(a[ii]);
     //Serial.println(a[ii]);
   }
-  //delayMicroseconds(50);
-  //digitalWrite(controlpin, LOW);
 }
 
 void bulkRead()
@@ -131,15 +127,11 @@ void bulkRead()
   }
   sum = ~byte(sum);
   a[9] = sum;
-  
-  //digitalWrite(controlpin, HIGH);
-  
+    
   for(int ii = 0; ii < 10; ii++)
   {
     USART_Transmit_for_1(a[ii]);
   }
-  //delayMicroseconds(20);
-  //digitalWrite(controlpin, LOW);
 }
 
 void blinkLed()
