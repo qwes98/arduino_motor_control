@@ -2,16 +2,17 @@
 #define BAUD 1000000
 
 bool send_data_to_matlab = false;
-int ISR_cnt = 0;
+bool interrupt_on = true;
+unsigned long ISR_cnt = 0;
 int Tcnt = 0;
 int pastDEGREE;
-unsigned int w;  // 지금 움직여야 하는 모터 각도
+double w;  // 지금 움직여야 하는 모터 각도
 int Mcount;
 int MFRE;
 unsigned int MYUBRR = 0;
 unsigned char a[20];
 unsigned char readpacket[20];
-int curDegreeBuf = 0;
+unsigned int curDegreeBuf = 0;
 
 // Values from matlab
 unsigned int MIDc;
@@ -45,7 +46,47 @@ void setup() {
   //  UCSR0C |= (1 << UCSZ01) | (1 << UCSZ00);
   //  MYUBRR = (FOSC / (8 * BAUD)) - 1;
   //
-  //  UBRR0H = (unsigned char)(MYUBRR << 8); //상위 비트를 저장(8자리를 넘어간다면 그것을 상위비트에 저장
+  //  UBRR0H = (unsigned char
+num6 = floor(degreeTEXT - num3*1000 - num4*100 - num5*10);
+zTEXT(9) = int2str(num6);
+
+freqTEXT = str2double(get(handles.edit3, 'String'));
+num7 = floor(freqTEXT/1000);
+zTEXT(11) = int2str(num7);
+num8 = floor((freqTEXT - num7*1000)/100);
+zTEXT(12) = int2str(num8);
+num9 = floor((freqTEXT - num7*1000 - num8*100)/10);
+zTEXT(13) = int2str(num9);
+num10 = floor(freqTEXT - num7*1000 - num8*100 - num9*10);
+zTEXT(14) = int2str(num10);
+for i=1:15
+    fwrite(arduino, zTEXT(i), 'char');
+end
+
+global h2
+%global h4
+global time
+
+% FIXME: Bdegree2는 두번째 모터를 위한 값 -> 삭제?
+double Bdegree1;
+%double Bdegree2;
+
+Bdegree1 = 0;
+%Bdegree2 = 0;
+
+h2 = plot(handles.axes1, time, Bdegree1, 'o', 'MarkerSize', 5, 'MarkerFaceColor', 'b');
+%h4 = plot(handles.axes1, time, Bdegree2, 'o', 'MarkerSize', 5, 'MarkerFaceColor', 'r');
+
+xlim([time-300 time+300]);  % x의 범위는 -300 ~ +300 까지
+ylim([0 360]);
+
+curve1 = animatedline('color', 'g');
+%curve2 = animatedline('color', 'r');
+set(gca, 'XLim', xlim, 'YLim', ylim);
+hold on
+
+flushinput(arduino)     % 버퍼 비우는 명령어. 그래프 값 딜레이를 없애줌
+)(MYUBRR << 8); //상위 비트를 저장(8자리를 넘어간다면 그것을 상위비트에 저장
   //  UBRR0L = (unsigned char)(MYUBRR); //하위 비트 저장(8자리를 넘어가는 것은 버림)
 
   // Arduino Mega의 TX1, RX1 사용하기 위함 (모터와 통신)
@@ -159,6 +200,16 @@ void data_reading_from_matlab()
     char ID1 = Serial.read();
     int ID = ID1 - '0';
 
+    if(ID == 73)
+    {
+      interrupt_on = false;
+    }
+
+    if(ID == 74)
+    {
+      interrupt_on = true;
+    }
+    
     if(ID == 49)
     {
       for(i = 0; i < 2; )
@@ -258,26 +309,28 @@ ISR(TIMER1_COMPA_vect)
     //motor_goal = dynamixel_CF_movement(MMDEGREE, MMFRE, ISR_cnt, pastDEGREE);
     //writeMotor(MIDc, motor_goal);
 
-    // TODO: understand completely
-    if(Tcnt < Mcount)   // ISR -> 5ms마다 호출 => goal을 반주기로 나눠서 여러번 보냄?
+    if(interrupt_on)
     {
-      Tcnt++;
-      if((MMDEGREE - pastDEGREE) > 0)
+      if(Tcnt < Mcount)   // ISR -> 5ms마다 호출 => goal을 반주기로 나눠서 여러번 보냄?
       {
-       w = pastDEGREE + (MMDEGREE - pastDEGREE)/2.0*(1-cos((2*3.14/(MMFRE*10.0))*Tcnt)); 
-      }
+        Tcnt++;
+        if((MMDEGREE - pastDEGREE) > 0)
+        {
+          w = pastDEGREE + (MMDEGREE - pastDEGREE)/2.0*(1-cos((2*3.14/(MMFRE*10.0))*Tcnt)); 
+        }
+        else
+        { 
+          w = pastDEGREE - (-1*(MMDEGREE - pastDEGREE))/2.0*(1-cos((2*3.14/(MMFRE*10.0))*Tcnt));
+        }
+        writeMotor(MIDc, w);
+      } 
       else
-      { 
-        w = pastDEGREE - (-1*(MMDEGREE - pastDEGREE))/2.0*(1-cos((2*3.14/(MMFRE*10.0))*Tcnt));
+      {
+        interrupt_on = false;
+        pastDEGREE = w;
+        Serial.flush();
       }
-      writeMotor(MIDc, w);
-    } 
-    else
-    {
-      pastDEGREE = w;
-      Serial.flush();
     }
-    
   }
   else if(ISR_cnt % 5 == 3)
   {
