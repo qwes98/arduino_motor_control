@@ -2,6 +2,8 @@
 #define BAUD 1000000
 
 bool send_data_to_matlab = false;
+//bool interrupt_on = true;
+bool read_from_buf = false;
 unsigned long ISR_cnt = 0;    // ISR_cnt를 int로 하면 매트랩 정지 현상 생김
 int Tcnt = 0;
 int pastDEGREE;
@@ -89,6 +91,7 @@ void writeMotor(unsigned int ID, unsigned int pos)
   a[6] = byte(pos);
   a[7] = byte((pos & 0xff00) >> 8);
 
+  
   unsigned int sum = 0;
   int i;
   for(i = 2; i < 8; i++)
@@ -98,15 +101,15 @@ void writeMotor(unsigned int ID, unsigned int pos)
   sum = ~byte(sum & 0x00FF);
   a[8] = sum;
 
-  digitalWrite(controlpin, HIGH);
+  //digitalWrite(controlpin, HIGH);
   
   for(int ii = 0; ii < 9; ii++)
   {
     USART_Transmit_for_1(a[ii]);
     //Serial.println(a[ii]);
   }
-  delayMicroseconds(50);
-  digitalWrite(controlpin, LOW);
+  //delayMicroseconds(50);
+  //digitalWrite(controlpin, LOW);
 }
 
 void bulkRead()
@@ -129,14 +132,14 @@ void bulkRead()
   sum = ~byte(sum);
   a[9] = sum;
   
-  digitalWrite(controlpin, HIGH);
+  //digitalWrite(controlpin, HIGH);
   
   for(int ii = 0; ii < 10; ii++)
   {
     USART_Transmit_for_1(a[ii]);
   }
-  delayMicroseconds(50);
-  digitalWrite(controlpin, LOW);
+  //delayMicroseconds(20);
+  //digitalWrite(controlpin, LOW);
 }
 
 void blinkLed()
@@ -223,10 +226,9 @@ void data_reading_from_motor_buf()
         if(Serial1.available() > 0)
         {
           readpacket[i] = Serial1.read();
-          //Serial.println(readpacket[i]);
           i++;
         }
-      }
+      }      
       unsigned char sumOfPacket = 0;
       
       for(int i = 1; i < 6; i++)
@@ -234,14 +236,17 @@ void data_reading_from_motor_buf()
         sumOfPacket += readpacket[i];
       }
       sumOfPacket = ~byte(sumOfPacket);   // 다시 넣어주어야 ~byte연산한 비트들을 unsigned char로 해석하게 되고 비교시 문제가 없음
-     
-      if(sumOfPacket == readpacket[6])
+
+      int tmp = readpacket[5] << 8;
+      tmp = tmp + readpacket[4];
+      if(sumOfPacket == readpacket[6] && tmp > 0 && tmp < 4096)
       {
-        int tmp = readpacket[5] << 8;
-        curDegreeBuf = tmp + readpacket[4]; 
+        curDegreeBuf = tmp;
       }
+      //Serial.println(curDegreeBuf);
     }
   }
+  read_from_buf = false;
 }
 
 void data_sending_to_matlab()
@@ -257,11 +262,10 @@ ISR(TIMER1_COMPA_vect)
   {
     //motor_goal = dynamixel_CF_movement(MMDEGREE, MMFRE, ISR_cnt, pastDEGREE);
     //writeMotor(MIDc, motor_goal);
-
-    // TODO: understand completely
+    digitalWrite(controlpin, HIGH);
     if(Tcnt < Mcount)   // ISR -> 5ms마다 호출 => goal을 반주기로 나눠서 여러번 보냄?
     {
-      Tcnt++;
+      Tcnt+=5;    // 5씩 증가를 시켜야 함 (이 if문에 5초에 한번씩 들어오기 때문)
       if((MMDEGREE - pastDEGREE) > 0)
       {
        w = pastDEGREE + (MMDEGREE - pastDEGREE)/2.0*(1-cos((2*3.14/(MMFRE*10.0))*Tcnt)); 
@@ -281,7 +285,11 @@ ISR(TIMER1_COMPA_vect)
   }
   else if(ISR_cnt % 5 == 3)
   {
+    digitalWrite(controlpin, HIGH);
     bulkRead();
+    read_from_buf = true;   // bulkRead가 호출되어 리턴 패킷을 받았을때에만 loop에서 읽기 위해 플래그 사용 -> 매트랩 그래프 계단현상 해결
+    delayMicroseconds(30);  // 리턴 패킷이 모두 제대로 들어오기 위한 시간 마련
+    digitalWrite(controlpin, LOW);
   }
   // 50ms마다 한번 씩 매트랩으로 값을 쏴준다
   else if(ISR_cnt % 50 == 10)   // bulkRead하는 시점과 조금 텀이 있어야!
@@ -296,7 +304,10 @@ void loop()
   // put your main code here, to run repeatedly:
   data_reading_from_matlab();
 
-  data_reading_from_motor_buf();
+  if(read_from_buf)
+  {
+    data_reading_from_motor_buf();
+  }
 
   if(send_data_to_matlab == true)
   {
