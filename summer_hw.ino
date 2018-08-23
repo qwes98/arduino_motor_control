@@ -46,47 +46,7 @@ void setup() {
   //  UCSR0C |= (1 << UCSZ01) | (1 << UCSZ00);
   //  MYUBRR = (FOSC / (8 * BAUD)) - 1;
   //
-  //  UBRR0H = (unsigned char
-num6 = floor(degreeTEXT - num3*1000 - num4*100 - num5*10);
-zTEXT(9) = int2str(num6);
-
-freqTEXT = str2double(get(handles.edit3, 'String'));
-num7 = floor(freqTEXT/1000);
-zTEXT(11) = int2str(num7);
-num8 = floor((freqTEXT - num7*1000)/100);
-zTEXT(12) = int2str(num8);
-num9 = floor((freqTEXT - num7*1000 - num8*100)/10);
-zTEXT(13) = int2str(num9);
-num10 = floor(freqTEXT - num7*1000 - num8*100 - num9*10);
-zTEXT(14) = int2str(num10);
-for i=1:15
-    fwrite(arduino, zTEXT(i), 'char');
-end
-
-global h2
-%global h4
-global time
-
-% FIXME: Bdegree2는 두번째 모터를 위한 값 -> 삭제?
-double Bdegree1;
-%double Bdegree2;
-
-Bdegree1 = 0;
-%Bdegree2 = 0;
-
-h2 = plot(handles.axes1, time, Bdegree1, 'o', 'MarkerSize', 5, 'MarkerFaceColor', 'b');
-%h4 = plot(handles.axes1, time, Bdegree2, 'o', 'MarkerSize', 5, 'MarkerFaceColor', 'r');
-
-xlim([time-300 time+300]);  % x의 범위는 -300 ~ +300 까지
-ylim([0 360]);
-
-curve1 = animatedline('color', 'g');
-%curve2 = animatedline('color', 'r');
-set(gca, 'XLim', xlim, 'YLim', ylim);
-hold on
-
-flushinput(arduino)     % 버퍼 비우는 명령어. 그래프 값 딜레이를 없애줌
-)(MYUBRR << 8); //상위 비트를 저장(8자리를 넘어간다면 그것을 상위비트에 저장
+  //  UBRR0H = (unsigned char)(MYUBRR << 8); //상위 비트를 저장(8자리를 넘어간다면 그것을 상위비트에 저장
   //  UBRR0L = (unsigned char)(MYUBRR); //하위 비트 저장(8자리를 넘어가는 것은 버림)
 
   // Arduino Mega의 TX1, RX1 사용하기 위함 (모터와 통신)
@@ -303,7 +263,7 @@ void data_sending_to_matlab()
 
 ISR(TIMER1_COMPA_vect)
 {
-  ISR_cnt++;
+  ISR_cnt+=5;
   if(ISR_cnt % 5 == 1)
   {
     //motor_goal = dynamixel_CF_movement(MMDEGREE, MMFRE, ISR_cnt, pastDEGREE);
