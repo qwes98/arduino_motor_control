@@ -2,8 +2,9 @@
 #define BAUD 1000000
 
 bool send_data_to_matlab = false;
-//bool interrupt_on = true;
+bool interrupt_on = false;
 bool read_from_buf = false;
+bool start_flag = true;
 unsigned long ISR_cnt = 0;    // ISR_cnt를 int로 하면 매트랩 정지 현상 생김
 int Tcnt = 0;
 int pastDEGREE;
@@ -62,7 +63,13 @@ void setup() {
   sei();
   interrupts();
 
-  // TODO: 현재 모터값 읽어와서 pastDEGREE 초기화
+  // pastDEGREE,w 초기화
+  digitalWrite(controlpin, HIGH);
+  bulkRead();
+  read_from_buf = true;   // bulkRead가 호출되어 리턴 패킷을 받았을때에만 loop에서 읽기 위해 플래그 사용 -> 매트랩 그래프 계단현상 해결
+  delayMicroseconds(30);  // 리턴 패킷이 모두 제대로 들어오기 위한 시간 마련
+  digitalWrite(controlpin, LOW);
+
 }
 
 int dynamixel_CF_movement(double degree, double fre, int cnt, double tmp)   //degree: 목표값, fre: 진행시간, cnt: x축정의역, tmp: 모터의 현재위치
@@ -154,7 +161,15 @@ void data_reading_from_matlab()
     char ID1 = Serial.read();
     int ID = ID1 - '0';
 
-    if(ID == 49)
+    if(ID == 73)
+    {
+      interrupt_on = false;
+    }
+    else if(ID == 74)
+    {
+      interrupt_on = true;
+    }
+    else if(ID == 49)
     {
       for(i = 0; i < 2; )
       {
@@ -236,6 +251,13 @@ void data_reading_from_motor_buf()
         curDegreeBuf = tmp;
       }
       //Serial.println(curDegreeBuf);
+      // 처음에 pastDEGREE, w 초기화
+      if(start_flag)
+      {
+        pastDEGREE = tmp;
+        w = tmp;
+        start_flag = false;
+      }
     }
   }
   read_from_buf = false;
@@ -250,6 +272,9 @@ void data_sending_to_matlab()
 ISR(TIMER1_COMPA_vect)
 {
   ISR_cnt++;
+  if(interrupt_on)
+  {
+  
   if(ISR_cnt % 5 == 1)
   {
     //motor_goal = dynamixel_CF_movement(MMDEGREE, MMFRE, ISR_cnt, pastDEGREE);
@@ -270,7 +295,10 @@ ISR(TIMER1_COMPA_vect)
     } 
     else
     {
-      pastDEGREE = w;
+      if(!start_flag)
+      {
+        pastDEGREE = w;
+      }
       Serial.flush();
     }
     
@@ -283,8 +311,10 @@ ISR(TIMER1_COMPA_vect)
     delayMicroseconds(30);  // 리턴 패킷이 모두 제대로 들어오기 위한 시간 마련
     digitalWrite(controlpin, LOW);
   }
+  }
+  
   // 50ms마다 한번 씩 매트랩으로 값을 쏴준다
-  else if(ISR_cnt % 50 == 10)   // bulkRead하는 시점과 조금 텀이 있어야!
+  if(ISR_cnt % 50 == 10)   // bulkRead하는 시점과 조금 텀이 있어야!
   {
     send_data_to_matlab = true;
   }
