@@ -17,7 +17,7 @@ unsigned char readpacket[20];
 unsigned int curDegreeBuf = 0;
 
 // Values from matlab
-unsigned int MIDc;
+unsigned int MIDc = 1;
 int MMDEGREE;
 int MMFRE;  // FIXME: have to initialize?
 
@@ -65,7 +65,7 @@ void setup() {
 
   // pastDEGREE,w 초기화
   digitalWrite(controlpin, HIGH);
-  bulkRead();
+  bulkRead(MIDc);
   read_from_buf = true;   // bulkRead가 호출되어 리턴 패킷을 받았을때에만 loop에서 읽기 위해 플래그 사용 -> 매트랩 그래프 계단현상 해결
   delayMicroseconds(30);  // 리턴 패킷이 모두 제대로 들어오기 위한 시간 마련
   digitalWrite(controlpin, LOW);
@@ -115,7 +115,7 @@ void writeMotor(unsigned int ID, unsigned int pos)
   }
 }
 
-void bulkRead()
+void bulkRead(unsigned int ID)
 {
   a[0] = 0xFF;
   a[1] = 0xFF;
@@ -124,7 +124,7 @@ void bulkRead()
   a[4] = 0x92;   
   a[5] = 0x00;
   a[6] = 0x02;   // first module data length
-  a[7] = 0x01;   // first module id
+  a[7] = byte(ID);   // first module id
   a[8] = 0x24;   // data starting address
 
   unsigned int sum = 0;
@@ -306,7 +306,7 @@ ISR(TIMER1_COMPA_vect)
   else if(ISR_cnt % 5 == 3)
   {
     digitalWrite(controlpin, HIGH);
-    bulkRead();
+    bulkRead(MIDc);
     read_from_buf = true;   // bulkRead가 호출되어 리턴 패킷을 받았을때에만 loop에서 읽기 위해 플래그 사용 -> 매트랩 그래프 계단현상 해결
     delayMicroseconds(30);  // 리턴 패킷이 모두 제대로 들어오기 위한 시간 마련
     digitalWrite(controlpin, LOW);
