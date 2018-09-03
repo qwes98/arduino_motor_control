@@ -2,7 +2,7 @@
 #define BAUD 1000000
 
 bool send_data_to_matlab = false;
-bool interrupt_on = false;
+bool interrupt_on = true;
 bool read_from_buf = false;
 bool start_flag = true;
 unsigned long ISR_cnt = 0;    // ISR_cnt를 int로 하면 매트랩 정지 현상 생김
@@ -274,7 +274,7 @@ ISR(TIMER1_COMPA_vect)
   ISR_cnt++;
   if(interrupt_on)
   {
-  
+    
   if(ISR_cnt % 5 == 1)
   {
     //motor_goal = dynamixel_CF_movement(MMDEGREE, MMFRE, ISR_cnt, pastDEGREE);
@@ -331,7 +331,7 @@ void loop()
     data_reading_from_motor_buf();
   }
 
-  if(send_data_to_matlab == true)
+  if(send_data_to_matlab)
   {
     data_sending_to_matlab();
   }
