@@ -1,25 +1,42 @@
+/**
+ * 09.03 - 09.09 
+ * 
+ * 1. variable => array: OK
+ * 2. matlab->arduino comm: OK 
+ * 3. syncWrite:
+ * 4. bulkRead:
+ * 5. arduino->matlab:
+ * 
+ */
+
 #define FOSC 16000000
 #define BAUD 1000000
 
+const int number_dxl = 2;
 bool send_data_to_matlab = false;
 bool interrupt_on = true;
 bool read_from_buf = false;
 bool start_flag = true;
 unsigned long ISR_cnt = 0;    // ISR_cnt를 int로 하면 매트랩 정지 현상 생김
-int Tcnt = 0;
-int pastDEGREE;
-double w;  // 지금 움직여야 하는 모터 각도
-int Mcount;
-int MFRE;
+int Tcnt[number_dxl] = {0};
+// TODO: pastDEGREE -> array
+int pastDEGREE[number_dxl];
+// TODO: pos 수정
+unsigned int pos[number_dxl];  // 지금 움직여야 하는 모터 각도
+// TODO: Mcount, MFRE -> Mcount[0] or Mcount[1]
+int Mcount[number_dxl];
+int MFRE[number_dxl];
 unsigned int MYUBRR = 0;
 unsigned char a[20];
 unsigned char readpacket[20];
-unsigned int curDegreeBuf = 0;
+// TODO: curDegreeBuf -> array
+unsigned int curDegreeBuf[number_dxl] = {0};
 
 // Values from matlab
-unsigned int MIDc = 1;
-int MMDEGREE;
-int MMFRE;  // FIXME: have to initialize?
+// TODO: MIDc, MMDEFREE, MMFRE -> MIDc[0] or MIDc[1]
+unsigned int MIDc[number_dxl] = {1, 2};
+int MMDEGREE[number_dxl];
+int MMFRE[number_dxl];  // FIXME: have to initialize?
 
 int ledpin = 13;
 int controlpin = 4;
@@ -63,9 +80,9 @@ void setup() {
   sei();
   interrupts();
 
-  // pastDEGREE,w 초기화
+  // pastDEGREE,pos 초기화
   digitalWrite(controlpin, HIGH);
-  bulkRead(MIDc);
+  bulkRead();
   read_from_buf = true;   // bulkRead가 호출되어 리턴 패킷을 받았을때에만 loop에서 읽기 위해 플래그 사용 -> 매트랩 그래프 계단현상 해결
   delayMicroseconds(30);  // 리턴 패킷이 모두 제대로 들어오기 위한 시간 마련
   digitalWrite(controlpin, LOW);
@@ -86,56 +103,63 @@ void USART_Transmit_for_1(unsigned char SEND)
   UDR1 = SEND;
 }
 
-void writeMotor(unsigned int ID, unsigned int pos)
+void writeMotor()
 {
   // Write
   a[0] = 0xFF;
   a[1] = 0xFF;
-  a[2] = byte(ID);
-  a[3] = 0x05;    // length
-  a[4] = 0x03;
-  a[5] = 0x1E;
-  a[6] = byte(pos);
-  a[7] = byte((pos & 0xff00) >> 8);
-
+  a[2] = 0xFE;
+  a[3] = 0x10;    // length
+  a[4] = 0x83;    // instruction
+  a[5] = 0x1E;    // start address
+  a[6] = 0x02;    // data length
+  a[7] = byte(MIDc[0]);   // first ID
+  a[8] = byte(pos[0]);
+  a[9] = byte((pos[0] & 0xff00) >> 8);
+  a[10] = byte(MIDc[1]);  // second ID
+  a[11] = byte(pos[1]);
+  a[12] = byte((pos[1] & 0xff00) >> 8);
   
   unsigned int sum = 0;
   int i;
-  for(i = 2; i < 8; i++)
+  for(i = 2; i < 13; i++)
   {
     sum += a[i];
   }
   sum = ~byte(sum & 0x00FF);
-  a[8] = sum;
+  a[13] = sum;
   
-  for(int ii = 0; ii < 9; ii++)
+  for(int ii = 0; ii < 14; ii++)
   {
     USART_Transmit_for_1(a[ii]);
     //Serial.println(a[ii]);
   }
 }
 
-void bulkRead(unsigned int ID)
+void bulkRead()
 {
   a[0] = 0xFF;
   a[1] = 0xFF;
   a[2] = 0xFE;
-  a[3] = 0x06;   // length
+  a[3] = 0x09;   // length
   a[4] = 0x92;   
   a[5] = 0x00;
   a[6] = 0x02;   // first module data length
-  a[7] = byte(ID);   // first module id
+  a[7] = byte(MIDc[0]);   // first module id
   a[8] = 0x24;   // data starting address
+  a[9] = 0x02;
+  a[10] = byte(MIDc[1]);
+  a[11] = 0x24;
 
   unsigned int sum = 0;
-  for(int i = 2; i < 9; i++)
+  for(int i = 2; i < 12; i++)
   {
     sum += a[i];
   }
   sum = ~byte(sum);
-  a[9] = sum;
+  a[12] = sum;
     
-  for(int ii = 0; ii < 10; ii++)
+  for(int ii = 0; ii < 13; ii++)
   {
     USART_Transmit_for_1(a[ii]);
   }
@@ -153,8 +177,7 @@ void data_reading_from_matlab()
 {
   int i;
   int MID[20];
-  int MDEGRE0E;
-  int MFRE;
+  //int MDEGREE;
 
   if(Serial.available() > 0)
   {
@@ -169,7 +192,7 @@ void data_reading_from_matlab()
     {
       interrupt_on = true;
     }
-    else if(ID == 49)
+    else if(ID == 49 || ID == 52)
     {
       for(i = 0; i < 2; )
       {
@@ -181,9 +204,20 @@ void data_reading_from_matlab()
           i++;              // WARNING: 이 구문을 for문 선언안에 넣게 되면 패킷을 받아 이곳이 호출되기 전에 빠져나간다.
         }
       }
-      MIDc = (MID[0]*10) + (MID[1]*1);
+
+      int idx;
+      if(ID == 49)
+      {
+        idx = 0;
+      }
+      else if(ID == 52)
+      {
+        idx = 1;
+      }
+      MIDc[idx] = (MID[0]*10) + (MID[1]*1);
+
     }
-    else if(ID == 50)
+    else if(ID == 50 || ID == 53)
     {
       for(i = 0; i < 4;)
       {
@@ -195,11 +229,22 @@ void data_reading_from_matlab()
           i++;
         }
       }
-      MMDEGREE = (MID[0]*1000) + (MID[1]*100) + (MID[2]*10) + (MID[3]*1);
-      Tcnt = 0;
-      Mcount = 5 * MMFRE;   // 1 - cos의 반주기
+
+      int idx;
+      if(ID == 50)
+      {
+        idx = 0;
+      }
+      else if(ID == 53)
+      {
+        idx = 1;
+      }
+
+      MMDEGREE[idx] = (MID[0]*1000) + (MID[1]*100) + (MID[2]*10) + (MID[3]*1);
+      Tcnt[idx] = 0;
+      
     }
-    else if(ID == 51)
+    else if(ID == 51 || ID == 54)
     {
       for(i = 0; i < 4; )
       {
@@ -211,14 +256,28 @@ void data_reading_from_matlab()
           i++;
         }
       }
-      MFRE = (MID[0]*1000) + (MID[1]*100) + (MID[2]*10) + (MID[3]*1);
-      MMFRE = MFRE;
-      Mcount = 5 * MMFRE;   // 1 - cos의 반주기
+      
+      int idx;
+      if(ID == 51)
+      {
+        idx = 0;
+      }
+      else if(ID == 54)
+      {
+        idx = 1;
+      }
+      
+      MFRE[idx] = (MID[0]*1000) + (MID[1]*100) + (MID[2]*10) + (MID[3]*1);
+      MMFRE[idx] = MFRE[idx];
+      Mcount[idx] = 5 * MMFRE[idx];   // 1 - cos의 반주기
     }
-    if(MIDc == 1 && MMDEGREE == 1000 && MFRE == 1000)
+    /*
+    if(MIDc[0] == 1 && MMDEGREE[0] == 1000 && MFRE[0] == 1000
+    && MIDc[1] == 2 && MMDEGREE[1] == 2000 && MFRE[1] == 2000)
     {
       blinkLed();
-    }  
+    }
+    */
   }
 }
 
@@ -248,16 +307,40 @@ void data_reading_from_motor_buf()
       tmp = tmp + readpacket[4];
       if(sumOfPacket == readpacket[6] && tmp > 0 && tmp < 4096)
       {
-        curDegreeBuf = tmp;
+        // ID == 1
+        if(readpacket[1] == 1)
+        {
+          curDegreeBuf[0] = tmp;
+          // 처음에 pastDEGREE, pos 초기화
+          if(start_flag)
+          {
+            pastDEGREE[0] = tmp;
+            pos[0] = (double)tmp;
+          }
+        }
+        // ID == 2
+        else if(readpacket[1] == 2)
+        {
+          curDegreeBuf[1] = tmp;
+          // 처음에 pastDEGREE, pos 초기화
+          if(start_flag)
+          {
+            pastDEGREE[1] = tmp;
+            pos[1] = (double)tmp;
+            start_flag = false;   // FIXME: 첫번째모터 초기화, 두번째모터 초기화 알고리즘 바꾸기?
+          }
+        }
       }
-      //Serial.println(curDegreeBuf);
-      // 처음에 pastDEGREE, w 초기화
+
+      /*
+      // 처음에 pastDEGREE, pos 초기화
       if(start_flag)
       {
-        pastDEGREE = tmp;
-        w = tmp;
+        pastDEGREE[0] = tmp;
+        pos[0] = tmp;
         start_flag = false;
       }
+      */
     }
   }
   read_from_buf = false;
@@ -265,7 +348,11 @@ void data_reading_from_motor_buf()
 
 void data_sending_to_matlab()
 {
-  Serial.println(round(curDegreeBuf*360.0/4096));
+  // FIXME
+  for(int i = 0; i < number_dxl; i++)
+  {
+    Serial.println(round(curDegreeBuf[i]*360.0/4096));
+  }
   send_data_to_matlab = false;
 }
 
@@ -278,35 +365,41 @@ ISR(TIMER1_COMPA_vect)
   if(ISR_cnt % 5 == 1)
   {
     //motor_goal = dynamixel_CF_movement(MMDEGREE, MMFRE, ISR_cnt, pastDEGREE);
-    //writeMotor(MIDc, motor_goal);
     digitalWrite(controlpin, HIGH);
-    if(Tcnt < Mcount)   // ISR -> 5ms마다 호출 => goal을 반주기로 나눠서 여러번 보냄?
+ 
+    for(int i = 0; i < number_dxl; i++)
     {
-      Tcnt+=5;    // 5씩 증가를 시켜야 함 (이 if문에 5초에 한번씩 들어오기 때문)
-      if((MMDEGREE - pastDEGREE) > 0)
+      if(Tcnt[i] < Mcount[i])   // ISR -> 5ms마다 호출 => goal을 반주기로 나눠서 여러번 보냄?
       {
-       w = pastDEGREE + (MMDEGREE - pastDEGREE)/2.0*(1-cos((2*3.14/(MMFRE*10.0))*Tcnt)); 
-      }
+        Tcnt[i]+=5;    // 5씩 증가를 시켜야 함 (이 if문에 5초에 한번씩 들어오기 때문)
+        // TODO: generalization
+        double w;
+        if((MMDEGREE[i] - pastDEGREE[i]) > 0)
+        {
+          // TODO: modify index
+          w = pastDEGREE[i] + (MMDEGREE[i] - pastDEGREE[i])/2.0*(1-cos((2*3.14/(MMFRE[i]*10.0))*Tcnt[i])); 
+        }
+        else
+        { 
+          w = pastDEGREE[i] - (-1*(MMDEGREE[i] - pastDEGREE[i]))/2.0*(1-cos((2*3.14/(MMFRE[i]*10.0))*Tcnt[i]));
+        }
+        pos[i] = w;
+        writeMotor();
+      } 
       else
-      { 
-        w = pastDEGREE - (-1*(MMDEGREE - pastDEGREE))/2.0*(1-cos((2*3.14/(MMFRE*10.0))*Tcnt));
-      }
-      writeMotor(MIDc, w);
-    } 
-    else
-    {
-      if(!start_flag)
       {
-        pastDEGREE = w;
+        if(!start_flag)
+        {
+          pastDEGREE[i] = pos[i];
+        }
+        Serial.flush();
       }
-      Serial.flush();
     }
-    
   }
   else if(ISR_cnt % 5 == 3)
   {
     digitalWrite(controlpin, HIGH);
-    bulkRead(MIDc);
+    bulkRead();
     read_from_buf = true;   // bulkRead가 호출되어 리턴 패킷을 받았을때에만 loop에서 읽기 위해 플래그 사용 -> 매트랩 그래프 계단현상 해결
     delayMicroseconds(30);  // 리턴 패킷이 모두 제대로 들어오기 위한 시간 마련
     digitalWrite(controlpin, LOW);
