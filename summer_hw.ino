@@ -286,7 +286,7 @@ void data_reading_from_matlab()
  *  HAVE TO DO
  *  problem
  *  1. 255가 두번, 세번 나올때가 있음
- *  2. id가 2인 값이 없음
+ *  2. id가 2인 값이 없음 (readpacket에서는)
  *  
  *  cf. 맨 처음 요청시 id1, id2 모터 위치값 잘 읽어옴
  */
@@ -294,15 +294,48 @@ void data_reading_from_motor_buf()
 {
   if(Serial1.available() > 0)
   {
-    if(Serial1.read() == 0xFF && Serial1.peek() == 0xFF)  // 두번째 peek으로 안하고 read로 하면 문제 생김
+    
+    // id가 2인 값은 있는데 255가 많이 나오기도 하고 노이즈가 있음
+    // -> 255가 딱 2번 나온 이후 읽는것을 해야 할듯
+    for(int i = 0; i < 100; i++)
+    { 
+      Serial.println(Serial1.read());
+    }
+    
+    
+    
+    int number_data = Serial1.available();
+    
+    for(int i = 0; i < number_data;)
     {
-      for(int i = 0; i < 7;)
+      unsigned char tmp = Serial1.read();
+      if(tmp == 0xFF && Serial1.peek() != 0xFF)
+      {
+        break;
+      }
+      i++;
+    }
+    
+    
+    //if(Serial1.read() == 0xFF && Serial1.peek() == 0xFF)  // 두번째 peek으로 안하고 read로 하면 문제 생김
+    //{
+      
+      readpacket[0] = 0xFF;
+      //for(int i = 0; i < 7;)
+      for(int i = 1; i < 7;)
       {
         if(Serial1.available() > 0)
         {
           readpacket[i] = Serial1.read();
-          i++;
+          if(i == 1)
+          {
+            if(!(readpacket[1] == 1 || readpacket[1] == 2))
+            {
+              break;
+            }
+          }
           //Serial.println(readpacket[i]);
+          i++;
         }
       }
       //Serial.println("-----");
@@ -352,7 +385,7 @@ void data_reading_from_motor_buf()
         start_flag = false;
       }
       */
-    }
+    //} 
   }
   //Serial.println("============");
   read_from_buf = false;
@@ -363,7 +396,7 @@ void data_sending_to_matlab()
   // FIXME
   for(int i = 0; i < number_dxl; i++)
   {
-    Serial.println(round(curDegreeBuf[i]*360.0/4096));
+    //Serial.println(round(curDegreeBuf[i]*360.0/4096));
   }
   //Serial.println("-----");
   send_data_to_matlab = false;
