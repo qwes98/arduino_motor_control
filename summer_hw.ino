@@ -3,7 +3,7 @@
  * 
  * 1. variable => array: OK
  * 2. matlab->arduino comm: OK 
- * 3. syncWrite:
+ * 3. syncWrite: OK
  * 4. bulkRead:
  * 5. arduino->matlab:
  * 
@@ -109,7 +109,7 @@ void writeMotor()
   a[0] = 0xFF;
   a[1] = 0xFF;
   a[2] = 0xFE;
-  a[3] = 0x10;    // length
+  a[3] = 0x0A;    // length   // 주의!! Hexa
   a[4] = 0x83;    // instruction
   a[5] = 0x1E;    // start address
   a[6] = 0x02;    // data length
@@ -173,6 +173,7 @@ void blinkLed()
   delay(1000); 
 }
 
+// DONE for 3
 void data_reading_from_matlab()
 {
   int i;
@@ -281,6 +282,14 @@ void data_reading_from_matlab()
   }
 }
 
+/* 
+ *  HAVE TO DO
+ *  problem
+ *  1. 255가 두번, 세번 나올때가 있음
+ *  2. id가 2인 값이 없음
+ *  
+ *  cf. 맨 처음 요청시 id1, id2 모터 위치값 잘 읽어옴
+ */
 void data_reading_from_motor_buf()
 {
   if(Serial1.available() > 0)
@@ -293,8 +302,10 @@ void data_reading_from_motor_buf()
         {
           readpacket[i] = Serial1.read();
           i++;
+          //Serial.println(readpacket[i]);
         }
-      }      
+      }
+      //Serial.println("-----");
       unsigned char sumOfPacket = 0;
       
       for(int i = 1; i < 6; i++)
@@ -327,7 +338,7 @@ void data_reading_from_motor_buf()
           {
             pastDEGREE[1] = tmp;
             pos[1] = (double)tmp;
-            start_flag = false;   // FIXME: 첫번째모터 초기화, 두번째모터 초기화 알고리즘 바꾸기?
+            start_flag = false;   // FIXME: 첫번째모터 초기화, 두번째모터 초기화 알고리즘 바꾸기
           }
         }
       }
@@ -343,6 +354,7 @@ void data_reading_from_motor_buf()
       */
     }
   }
+  //Serial.println("============");
   read_from_buf = false;
 }
 
@@ -353,6 +365,7 @@ void data_sending_to_matlab()
   {
     Serial.println(round(curDegreeBuf[i]*360.0/4096));
   }
+  //Serial.println("-----");
   send_data_to_matlab = false;
 }
 
@@ -384,7 +397,6 @@ ISR(TIMER1_COMPA_vect)
           w = pastDEGREE[i] - (-1*(MMDEGREE[i] - pastDEGREE[i]))/2.0*(1-cos((2*3.14/(MMFRE[i]*10.0))*Tcnt[i]));
         }
         pos[i] = w;
-        writeMotor();
       } 
       else
       {
@@ -395,6 +407,7 @@ ISR(TIMER1_COMPA_vect)
         Serial.flush();
       }
     }
+    writeMotor();
   }
   else if(ISR_cnt % 5 == 3)
   {
