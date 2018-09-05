@@ -1,4 +1,4 @@
-/**
+  /**
  * 09.03 - 09.09 
  * 
  * 1. variable => array: OK
@@ -15,7 +15,7 @@
 const int number_dxl = 2;
 bool send_data_to_matlab = false;
 bool interrupt_on = true;
-bool read_from_buf = false;
+bool read_from_buf = false;   // not using
 bool start_flag = true;
 unsigned long ISR_cnt = 0;    // ISR_cnt를 int로 하면 매트랩 정지 현상 생김
 int Tcnt[number_dxl] = {0};
@@ -81,11 +81,11 @@ void setup() {
   interrupts();
 
   // pastDEGREE,pos 초기화
-  digitalWrite(controlpin, HIGH);
+  //digitalWrite(controlpin, HIGH);
   bulkRead();
   read_from_buf = true;   // bulkRead가 호출되어 리턴 패킷을 받았을때에만 loop에서 읽기 위해 플래그 사용 -> 매트랩 그래프 계단현상 해결
-  delayMicroseconds(30);  // 리턴 패킷이 모두 제대로 들어오기 위한 시간 마련
-  digitalWrite(controlpin, LOW);
+  //delayMicroseconds(30);  // 리턴 패킷이 모두 제대로 들어오기 위한 시간 마련
+  //digitalWrite(controlpin, LOW);
 
 }
 
@@ -158,11 +158,15 @@ void bulkRead()
   }
   sum = ~byte(sum);
   a[12] = sum;
+  digitalWrite(controlpin, HIGH);
     
   for(int ii = 0; ii < 13; ii++)
   {
     USART_Transmit_for_1(a[ii]);
   }
+
+  delayMicroseconds(30);  // 리턴 패킷이 모두 제대로 들어오기 위한 시간 마련
+  digitalWrite(controlpin, LOW);
 }
 
 void blinkLed()
@@ -297,13 +301,22 @@ void data_reading_from_motor_buf()
     
     // id가 2인 값은 있는데 255가 많이 나오기도 하고 노이즈가 있음
     // -> 255가 딱 2번 나온 이후 읽는것을 해야 할듯
+    /*
     for(int i = 0; i < 100; i++)
     { 
       Serial.println(Serial1.read());
     }
+    */
     
-    
-    
+    /*   
+    while(Serial1.available() > 0)
+    {
+      Serial.println(Serial1.read());
+    }
+    Serial.println("-----------");
+    */
+
+  
     int number_data = Serial1.available();
     
     for(int i = 0; i < number_data;)
@@ -340,7 +353,8 @@ void data_reading_from_motor_buf()
       }
       //Serial.println("-----");
       unsigned char sumOfPacket = 0;
-      
+
+          
       for(int i = 1; i < 6; i++)
       {
         sumOfPacket += readpacket[i];
@@ -375,6 +389,7 @@ void data_reading_from_motor_buf()
           }
         }
       }
+      
 
       /*
       // 처음에 pastDEGREE, pos 초기화
@@ -396,7 +411,7 @@ void data_sending_to_matlab()
   // FIXME
   for(int i = 0; i < number_dxl; i++)
   {
-    //Serial.println(round(curDegreeBuf[i]*360.0/4096));
+    Serial.println(round(curDegreeBuf[i]*360.0/4096));
   }
   //Serial.println("-----");
   send_data_to_matlab = false;
@@ -444,11 +459,8 @@ ISR(TIMER1_COMPA_vect)
   }
   else if(ISR_cnt % 5 == 3)
   {
-    digitalWrite(controlpin, HIGH);
     bulkRead();
     read_from_buf = true;   // bulkRead가 호출되어 리턴 패킷을 받았을때에만 loop에서 읽기 위해 플래그 사용 -> 매트랩 그래프 계단현상 해결
-    delayMicroseconds(30);  // 리턴 패킷이 모두 제대로 들어오기 위한 시간 마련
-    digitalWrite(controlpin, LOW);
   }
   }
   
@@ -465,10 +477,10 @@ void loop()
   // put your main code here, to run repeatedly:
   data_reading_from_matlab();
 
-  if(read_from_buf)
-  {
+  //if(read_from_buf)
+  //{
     data_reading_from_motor_buf();
-  }
+  //}
 
   if(send_data_to_matlab)
   {
