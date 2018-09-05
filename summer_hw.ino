@@ -15,7 +15,6 @@
 const int number_dxl = 2;
 bool send_data_to_matlab = false;
 bool interrupt_on = true;
-bool read_from_buf = false;   // not using
 bool start_flag = true;
 unsigned long ISR_cnt = 0;    // ISR_cnt를 int로 하면 매트랩 정지 현상 생김
 int Tcnt[number_dxl] = {0};
@@ -83,7 +82,7 @@ void setup() {
   // pastDEGREE,pos 초기화
   //digitalWrite(controlpin, HIGH);
   bulkRead();
-  read_from_buf = true;   // bulkRead가 호출되어 리턴 패킷을 받았을때에만 loop에서 읽기 위해 플래그 사용 -> 매트랩 그래프 계단현상 해결
+  //read_from_buf = true;   // bulkRead가 호출되어 리턴 패킷을 받았을때에만 loop에서 읽기 위해 플래그 사용 -> 매트랩 그래프 계단현상 해결
   //delayMicroseconds(30);  // 리턴 패킷이 모두 제대로 들어오기 위한 시간 마련
   //digitalWrite(controlpin, LOW);
 
@@ -403,7 +402,6 @@ void data_reading_from_motor_buf()
     //} 
   }
   //Serial.println("============");
-  read_from_buf = false;
 }
 
 void data_sending_to_matlab()
@@ -460,7 +458,6 @@ ISR(TIMER1_COMPA_vect)
   else if(ISR_cnt % 5 == 3)
   {
     bulkRead();
-    read_from_buf = true;   // bulkRead가 호출되어 리턴 패킷을 받았을때에만 loop에서 읽기 위해 플래그 사용 -> 매트랩 그래프 계단현상 해결
   }
   }
   
@@ -477,10 +474,7 @@ void loop()
   // put your main code here, to run repeatedly:
   data_reading_from_matlab();
 
-  //if(read_from_buf)
-  //{
-    data_reading_from_motor_buf();
-  //}
+  data_reading_from_motor_buf();
 
   if(send_data_to_matlab)
   {
