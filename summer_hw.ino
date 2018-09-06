@@ -307,7 +307,7 @@ void data_reading_from_motor_buf()
     }
     */
     
-    /*   
+    /*
     while(Serial1.available() > 0)
     {
       Serial.println(Serial1.read());
@@ -315,7 +315,7 @@ void data_reading_from_motor_buf()
     Serial.println("-----------");
     */
 
-  
+  /*
     int number_data = Serial1.available();
     
     for(int i = 0; i < number_data;)
@@ -327,7 +327,7 @@ void data_reading_from_motor_buf()
       }
       i++;
     }
-    
+    */
     
     //if(Serial1.read() == 0xFF && Serial1.peek() == 0xFF)  // 두번째 peek으로 안하고 read로 하면 문제 생김
     //{
@@ -339,6 +339,7 @@ void data_reading_from_motor_buf()
         if(Serial1.available() > 0)
         {
           readpacket[i] = Serial1.read();
+          
           if(i == 1)
           {
             if(!(readpacket[1] == 1 || readpacket[1] == 2))
@@ -447,7 +448,7 @@ ISR(TIMER1_COMPA_vect)
       else
       {
         if(!start_flag)
-        {
+        { 
           pastDEGREE[i] = pos[i];
         }
         Serial.flush();
