@@ -15,6 +15,7 @@
 const int number_dxl = 2;
 bool send_data_to_matlab = false;
 bool interrupt_on = true;
+bool infinite_mode = false;
 bool start_flag = true;
 unsigned long ISR_cnt = 0;    // ISR_cnt를 int로 하면 매트랩 정지 현상 생김
 int Tcnt[number_dxl] = {0};
@@ -195,6 +196,36 @@ void data_reading_from_matlab()
     else if(ID == 74)
     {
       interrupt_on = true;
+    }
+    else if(ID == 61)   // 'm' -> mode (0: finite, 1: infinite mode, 2: stop mode)
+    {
+      for(int i = 0; i < 1;)
+      {
+        if(Serial.available() > 0)
+        {
+          char ID1 = Serial.read();
+          int ID = ID1 - '0';
+          // 이 if문으로는 잘 들어옴
+          if(ID == 0)
+          {
+            infinite_mode = false;
+          }
+          else if(ID == 1)
+          {
+            infinite_mode = true;
+          }
+          else if(ID == 2)
+          {
+            for(int i = 0; i < number_dxl; i++)
+            {
+              pastDEGREE[i] = pos[i];
+              Tcnt[i] = Mcount[i];
+              infinite_mode = false;
+            }
+          }
+          i++;
+        }
+      }
     }
     else if(ID == 49 || ID == 52)
     {
@@ -429,6 +460,27 @@ ISR(TIMER1_COMPA_vect)
  
     for(int i = 0; i < number_dxl; i++)
     {
+      if(infinite_mode)
+      {
+        
+        Tcnt[i]+=5;
+        // TODO
+        double w;
+        if((MMDEGREE[i] - pastDEGREE[i]) > 0)
+        {
+          // TODO: modify index
+          w = pastDEGREE[i] + (MMDEGREE[i] - pastDEGREE[i])/2.0*(1-cos((2*3.14/(MMFRE[i]*10.0))*Tcnt[i])); 
+        }
+        else
+        { 
+          w = pastDEGREE[i] - (-1*(MMDEGREE[i] - pastDEGREE[i]))/2.0*(1-cos((2*3.14/(MMFRE[i]*10.0))*Tcnt[i]));
+        }
+        pos[i] = w;
+      
+      }
+      else
+      {
+       
       if(Tcnt[i] < Mcount[i])   // ISR -> 5ms마다 호출 => goal을 반주기로 나눠서 여러번 보냄?
       {
         Tcnt[i]+=5;    // 5씩 증가를 시켜야 함 (이 if문에 5초에 한번씩 들어오기 때문)
@@ -447,12 +499,15 @@ ISR(TIMER1_COMPA_vect)
       } 
       else
       {
+        // 다 움직인 후 pastDEGREE값 현재값(현재 goal)로 초기화
         if(!start_flag)
         { 
           pastDEGREE[i] = pos[i];
         }
         Serial.flush();
       }
+      
+      } // infinite_mode else end
     }
     writeMotor();
   }
