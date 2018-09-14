@@ -276,7 +276,7 @@ void data_reading_from_matlab()
       }
 
       MMDEGREE[idx] = (MID[0]*1000) + (MID[1]*100) + (MID[2]*10) + (MID[3]*1);
-      Tcnt[idx] = 0;
+      Tcnt[idx] = 0;    // FIXME: 'z' 읽은 다음에 초기화?? (최대한 늦게?)
       
     }
     else if(ID == 51 || ID == 54)
@@ -401,7 +401,7 @@ void data_reading_from_motor_buf()
         {
           curDegreeBuf[0] = tmp;
           // 처음에 pastDEGREE, pos 초기화
-          if(start_flag)
+          if(start_flag == true)
           {
             pastDEGREE[0] = tmp;
             pos[0] = (double)tmp;
@@ -412,7 +412,7 @@ void data_reading_from_motor_buf()
         {
           curDegreeBuf[1] = tmp;
           // 처음에 pastDEGREE, pos 초기화
-          if(start_flag)
+          if(start_flag == true)
           {
             pastDEGREE[1] = tmp;
             pos[1] = (double)tmp;
@@ -450,7 +450,7 @@ void data_sending_to_matlab()
 ISR(TIMER1_COMPA_vect)
 {
   ISR_cnt++;
-  if(interrupt_on)
+  if(interrupt_on == true)
   {
     
   if(ISR_cnt % 5 == 1)
@@ -460,7 +460,7 @@ ISR(TIMER1_COMPA_vect)
  
     for(int i = 0; i < number_dxl; i++)
     {
-      if(infinite_mode)
+      if(infinite_mode == true)
       {
         
         Tcnt[i]+=5;
@@ -500,7 +500,7 @@ ISR(TIMER1_COMPA_vect)
       else
       {
         // 다 움직인 후 pastDEGREE값 현재값(현재 goal)로 초기화
-        if(!start_flag)
+        if(start_flag == false)
         { 
           pastDEGREE[i] = pos[i];
         }
@@ -532,7 +532,7 @@ void loop()
 
   data_reading_from_motor_buf();
 
-  if(send_data_to_matlab)
+  if(send_data_to_matlab == true)
   {
     data_sending_to_matlab();
   }
