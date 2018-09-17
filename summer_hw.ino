@@ -8,24 +8,19 @@ bool infinite_mode = false;
 bool start_flag = true;
 unsigned long ISR_cnt = 0;    // ISR_cnt를 int로 하면 매트랩 정지 현상 생김
 int Tcnt[number_dxl] = {0};
-// TODO: pastDEGREE -> array
 int pastDEGREE[number_dxl];
-// TODO: pos 수정
 unsigned int pos[number_dxl];  // 지금 움직여야 하는 모터 각도
-// TODO: Mcount, MFRE -> Mcount[0] or Mcount[1]
 int Mcount[number_dxl];
 int MFRE[number_dxl];
 unsigned int MYUBRR = 0;
 unsigned char a[20];
 unsigned char readpacket[20];
-// TODO: curDegreeBuf -> array
 unsigned int curDegreeBuf[number_dxl] = {0};
 
 // Values from matlab
-// TODO: MIDc, MMDEFREE, MMFRE -> MIDc[0] or MIDc[1]
 unsigned int MIDc[number_dxl] = {1, 2};
 int MMDEGREE[number_dxl];
-int MMFRE[number_dxl];  // FIXME: have to initialize?
+int MMFRE[number_dxl];
 
 int ledpin = 13;
 int controlpin = 4;
