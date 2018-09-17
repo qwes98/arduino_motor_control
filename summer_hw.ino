@@ -1,26 +1,27 @@
 #define FOSC 16000000
 #define BAUD 1000000
 
-const int number_dxl = 2;
+#define NUMBER_DXL 2
+
 bool send_data_to_matlab = false;
 bool interrupt_on = true;
 bool infinite_mode = false;
 bool start_flag = true;
-unsigned long ISR_cnt = 0;    // ISR_cnt를 int로 하면 매트랩 정지 현상 생김
-int Tcnt[number_dxl] = {0};
-int pastDEGREE[number_dxl];
-unsigned int pos[number_dxl];  // 지금 움직여야 하는 모터 각도
-int Mcount[number_dxl];
-int MFRE[number_dxl];
+unsigned long ISR_cnt = 0;    // WARNING: ISR_cnt를 int로 하면 매트랩 정지 현상 생김
+int Tcnt[NUMBER_DXL] = {0};
+int pastDEGREE[NUMBER_DXL];
+unsigned int pos[NUMBER_DXL];  // 지금 움직여야 하는 모터 각도
+int Mcount[NUMBER_DXL];
+int MFRE[NUMBER_DXL];
 unsigned int MYUBRR = 0;
 unsigned char a[20];
 unsigned char readpacket[20];
-unsigned int curDegreeBuf[number_dxl] = {0};
+unsigned int curDegreeBuf[NUMBER_DXL] = {0};
 
 // Values from matlab
-unsigned int MIDc[number_dxl] = {1, 2};
-int MMDEGREE[number_dxl];
-int MMFRE[number_dxl];
+unsigned int MIDc[NUMBER_DXL] = {1, 2};
+int MMDEGREE[NUMBER_DXL];
+int MMFRE[NUMBER_DXL];
 
 int ledpin = 13;
 int controlpin = 4;
@@ -182,7 +183,7 @@ void data_reading_from_matlab()
           }
           else if(ID == 2)
           {
-            for(int i = 0; i < number_dxl; i++)
+            for(int i = 0; i < NUMBER_DXL; i++)
             {
               pastDEGREE[i] = pos[i];
               Tcnt[i] = Mcount[i];
@@ -351,7 +352,7 @@ void data_reading_from_motor_buf()
 
 void data_sending_to_matlab()
 {
-  for(int i = 0; i < number_dxl; i++)
+  for(int i = 0; i < NUMBER_DXL; i++)
   {
     Serial.println(round(curDegreeBuf[i]*360.0/4096));
   }
@@ -368,7 +369,7 @@ ISR(TIMER1_COMPA_vect)
   {
     digitalWrite(controlpin, HIGH);
  
-    for(int i = 0; i < number_dxl; i++)
+    for(int i = 0; i < NUMBER_DXL; i++)
     {
       if(infinite_mode == true)
       {
