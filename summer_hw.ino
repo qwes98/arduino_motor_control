@@ -31,8 +31,6 @@ int ledpin = 13;
 int controlpin = 4;
 
 void setup() {
-  // put your setup code here, to run once:
-
   pinMode(controlpin, OUTPUT);
   pinMode(ledpin, OUTPUT);
   Serial.begin(1000000);    // matlab <-> arduino
@@ -48,15 +46,6 @@ void setup() {
   TCCR1B |= (1 << CS10);
   TIMSK1 |= (1 << OCIE1A);
 
-
-  //  UCSR0A |= (1 << U2X0); //U2X0-->통신속도를 2배로 해주는 세팅용 비트
-  //  UCSR0B |= (1 << RXEN0) | (1 << TXEN0);
-  //  UCSR0C |= (1 << UCSZ01) | (1 << UCSZ00);
-  //  MYUBRR = (FOSC / (8 * BAUD)) - 1;
-  //
-  //  UBRR0H = (unsigned char)(MYUBRR << 8); //상위 비트를 저장(8자리를 넘어간다면 그것을 상위비트에 저장
-  //  UBRR0L = (unsigned char)(MYUBRR); //하위 비트 저장(8자리를 넘어가는 것은 버림)
-
   // Arduino Mega의 TX1, RX1 사용하기 위함 (모터와 통신)
   UCSR1A |= (1 << U2X1); //U2X0-->통신속도를 2배로 해주는 세팅용 비트
   UCSR1B |= (1 << RXEN1) | (1 << TXEN1);
@@ -69,12 +58,7 @@ void setup() {
   sei();
   interrupts();
 
-  // pastDEGREE,pos 초기화
-  //digitalWrite(controlpin, HIGH);
   bulkRead();
-  //read_from_buf = true;   // bulkRead가 호출되어 리턴 패킷을 받았을때에만 loop에서 읽기 위해 플래그 사용 -> 매트랩 그래프 계단현상 해결
-  //delayMicroseconds(30);  // 리턴 패킷이 모두 제대로 들어오기 위한 시간 마련
-  //digitalWrite(controlpin, LOW);
 
 }
 
@@ -166,12 +150,10 @@ void blinkLed()
   delay(1000); 
 }
 
-// DONE for 3
 void data_reading_from_matlab()
 {
   int i;
   int MID[20];
-  //int MDEGREE;
 
   if(Serial.available() > 0)
   {
@@ -194,7 +176,7 @@ void data_reading_from_matlab()
         {
           char ID1 = Serial.read();
           int ID = ID1 - '0';
-          // 이 if문으로는 잘 들어옴
+          
           if(ID == 0)
           {
             infinite_mode = false;
@@ -305,56 +287,15 @@ void data_reading_from_matlab()
   }
 }
 
-/* 
- *  HAVE TO DO
- *  problem
- *  1. 255가 두번, 세번 나올때가 있음
- *  2. id가 2인 값이 없음 (readpacket에서는)
- *  
- *  cf. 맨 처음 요청시 id1, id2 모터 위치값 잘 읽어옴
- */
 void data_reading_from_motor_buf()
 {
   if(Serial1.available() > 0)
   {
     
-    // id가 2인 값은 있는데 255가 많이 나오기도 하고 노이즈가 있음
-    // -> 255가 딱 2번 나온 이후 읽는것을 해야 할듯
-    /*
-    for(int i = 0; i < 100; i++)
-    { 
-      Serial.println(Serial1.read());
-    }
-    */
-    
-    /*
-    while(Serial1.available() > 0)
-    {
-      Serial.println(Serial1.read());
-    }
-    Serial.println("-----------");
-    */
-
-  /*
-    int number_data = Serial1.available();
-    
-    for(int i = 0; i < number_data;)
-    {
-      unsigned char tmp = Serial1.read();
-      if(tmp == 0xFF && Serial1.peek() != 0xFF)
-      {
-        break;
-      }
-      i++;
-    }
-    */
-    
     if(Serial1.read() == 0xFF && Serial1.peek() == 0xFF)  // 두번째 peek으로 안하고 read로 하면 문제 생김
     {
       
-      //readpacket[0] = 0xFF;
       for(int i = 0; i < 7;)
-      //for(int i = 1; i < 7;)
       {
         if(Serial1.available() > 0)
         {
@@ -405,34 +346,20 @@ void data_reading_from_motor_buf()
           {
             pastDEGREE[1] = tmp;
             pos[1] = (double)tmp;
-            start_flag = false;   // FIXME: 첫번째모터 초기화, 두번째모터 초기화 알고리즘 바꾸기
+            start_flag = false;
           }
         }
       }
-      
-
-      /*
-      // 처음에 pastDEGREE, pos 초기화
-      if(start_flag)
-      {
-        pastDEGREE[0] = tmp;
-        pos[0] = tmp;
-        start_flag = false;
-      }
-      */
     } 
   }
-  //Serial.println("============");
 }
 
 void data_sending_to_matlab()
 {
-  // FIXME
   for(int i = 0; i < number_dxl; i++)
   {
     Serial.println(round(curDegreeBuf[i]*360.0/4096));
   }
-  //Serial.println("-----");
   send_data_to_matlab = false;
 }
 
@@ -451,9 +378,8 @@ ISR(TIMER1_COMPA_vect)
     {
       if(infinite_mode == true)
       {
-        
         Tcnt[i]+=5;
-        // TODO
+        
         double w;
         if((MMDEGREE[i] - pastDEGREE[i]) > 0)
         {
@@ -516,7 +442,6 @@ ISR(TIMER1_COMPA_vect)
 
 void loop() 
 {
-  // put your main code here, to run repeatedly:
   data_reading_from_matlab();
 
   data_reading_from_motor_buf();
