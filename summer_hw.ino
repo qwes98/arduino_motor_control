@@ -62,11 +62,11 @@ void setup() {
 
 }
 
-int dynamixel_CF_movement(double degree, double fre, int cnt, double tmp)   //degree: 목표값, fre: 진행시간, cnt: x축정의역, tmp: 모터의 현재위치
+double dynamixel_CF_movement(double degree, double fre, int cnt, double tmp)   //degree: 목표값, fre: 진행시간, cnt: x축정의역, tmp: 모터의 현재위치
 {
   double answer = 0;  
-  answer = tmp + ((degree-tmp)/2.0)*(1-cos((3.14*cnt)/(fre*10.0)));
-
+  answer = tmp + ((degree-tmp)/2.0)*(1-cos((2*3.14/(fre*10.0))*cnt));
+ 
   return answer;
 }
 
@@ -371,7 +371,6 @@ ISR(TIMER1_COMPA_vect)
     
   if(ISR_cnt % 5 == 1)
   {
-    //motor_goal = dynamixel_CF_movement(MMDEGREE, MMFRE, ISR_cnt, pastDEGREE);
     digitalWrite(controlpin, HIGH);
  
     for(int i = 0; i < number_dxl; i++)
@@ -380,17 +379,8 @@ ISR(TIMER1_COMPA_vect)
       {
         Tcnt[i]+=5;
         
-        double w;
-        if((MMDEGREE[i] - pastDEGREE[i]) > 0)
-        {
-          // TODO: modify index
-          w = pastDEGREE[i] + (MMDEGREE[i] - pastDEGREE[i])/2.0*(1-cos((2*3.14/(MMFRE[i]*10.0))*Tcnt[i])); 
-        }
-        else
-        { 
-          w = pastDEGREE[i] - (-1*(MMDEGREE[i] - pastDEGREE[i]))/2.0*(1-cos((2*3.14/(MMFRE[i]*10.0))*Tcnt[i]));
-        }
-        pos[i] = w;
+        double tmp_goal = dynamixel_CF_movement(MMDEGREE[i], MMFRE[i], Tcnt[i], pastDEGREE[i]);
+        pos[i] = tmp_goal;
       
       }
       else
@@ -399,18 +389,9 @@ ISR(TIMER1_COMPA_vect)
       if(Tcnt[i] < Mcount[i])   // ISR -> 5ms마다 호출 => goal을 반주기로 나눠서 여러번 보냄?
       {
         Tcnt[i]+=5;    // 5씩 증가를 시켜야 함 (이 if문에 5초에 한번씩 들어오기 때문)
-        // TODO: generalization
-        double w;
-        if((MMDEGREE[i] - pastDEGREE[i]) > 0)
-        {
-          // TODO: modify index
-          w = pastDEGREE[i] + (MMDEGREE[i] - pastDEGREE[i])/2.0*(1-cos((2*3.14/(MMFRE[i]*10.0))*Tcnt[i])); 
-        }
-        else
-        { 
-          w = pastDEGREE[i] - (-1*(MMDEGREE[i] - pastDEGREE[i]))/2.0*(1-cos((2*3.14/(MMFRE[i]*10.0))*Tcnt[i]));
-        }
-        pos[i] = w;
+        
+        double tmp_goal = dynamixel_CF_movement(MMDEGREE[i], MMFRE[i], Tcnt[i], pastDEGREE[i]);
+        pos[i] = tmp_goal;
       } 
       else
       {
