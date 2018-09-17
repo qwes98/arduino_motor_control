@@ -1,14 +1,3 @@
-  /**
- * 09.03 - 09.09 
- * 
- * 1. variable => array: OK
- * 2. matlab->arduino comm: OK 
- * 3. syncWrite: OK
- * 4. bulkRead:
- * 5. arduino->matlab:
- * 
- */
-
 #define FOSC 16000000
 #define BAUD 1000000
 
@@ -360,12 +349,12 @@ void data_reading_from_motor_buf()
     }
     */
     
-    //if(Serial1.read() == 0xFF && Serial1.peek() == 0xFF)  // 두번째 peek으로 안하고 read로 하면 문제 생김
-    //{
+    if(Serial1.read() == 0xFF && Serial1.peek() == 0xFF)  // 두번째 peek으로 안하고 read로 하면 문제 생김
+    {
       
-      readpacket[0] = 0xFF;
-      //for(int i = 0; i < 7;)
-      for(int i = 1; i < 7;)
+      //readpacket[0] = 0xFF;
+      for(int i = 0; i < 7;)
+      //for(int i = 1; i < 7;)
       {
         if(Serial1.available() > 0)
         {
@@ -431,7 +420,7 @@ void data_reading_from_motor_buf()
         start_flag = false;
       }
       */
-    //} 
+    } 
   }
   //Serial.println("============");
 }
