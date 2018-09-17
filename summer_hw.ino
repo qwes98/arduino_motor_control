@@ -3,10 +3,12 @@
 
 #define NUMBER_DXL 2
 
+// flag
 bool send_data_to_matlab = false;
 bool interrupt_on = true;
 bool infinite_mode = false;
 bool start_flag = true;
+
 unsigned long ISR_cnt = 0;    // WARNING: ISR_cnt를 int로 하면 매트랩 정지 현상 생김
 int Tcnt[NUMBER_DXL] = {0};
 int pastDEGREE[NUMBER_DXL];
@@ -14,7 +16,7 @@ unsigned int pos[NUMBER_DXL];  // 지금 움직여야 하는 모터 각도
 int Mcount[NUMBER_DXL];
 int MFRE[NUMBER_DXL];
 unsigned int MYUBRR = 0;
-unsigned char a[20];
+unsigned char writepacket[20];
 unsigned char readpacket[20];
 unsigned int curDegreeBuf[NUMBER_DXL] = {0};
 
@@ -75,63 +77,63 @@ void USART_Transmit_for_1(unsigned char SEND)
 void writeMotor()
 {
   // Write
-  a[0] = 0xFF;
-  a[1] = 0xFF;
-  a[2] = 0xFE;
-  a[3] = 0x0A;    // length   // 주의!! Hexa
-  a[4] = 0x83;    // instruction
-  a[5] = 0x1E;    // start address
-  a[6] = 0x02;    // data length
-  a[7] = byte(MIDc[0]);   // first ID
-  a[8] = byte(pos[0]);
-  a[9] = byte((pos[0] & 0xff00) >> 8);
-  a[10] = byte(MIDc[1]);  // second ID
-  a[11] = byte(pos[1]);
-  a[12] = byte((pos[1] & 0xff00) >> 8);
+  writepacket[0] = 0xFF;
+  writepacket[1] = 0xFF;
+  writepacket[2] = 0xFE;
+  writepacket[3] = 0x0A;    // length   // 주의!! Hexa
+  writepacket[4] = 0x83;    // instruction
+  writepacket[5] = 0x1E;    // start address
+  writepacket[6] = 0x02;    // data length
+  writepacket[7] = byte(MIDc[0]);   // first ID
+  writepacket[8] = byte(pos[0]);
+  writepacket[9] = byte((pos[0] & 0xff00) >> 8);
+  writepacket[10] = byte(MIDc[1]);  // second ID
+  writepacket[11] = byte(pos[1]);
+  writepacket[12] = byte((pos[1] & 0xff00) >> 8);
   
   unsigned int sum = 0;
-  int i;
-  for(i = 2; i < 13; i++)
+  
+  for(int i = 2; i < 13; i++)
   {
-    sum += a[i];
+    sum += writepacket[i];
   }
   sum = ~byte(sum & 0x00FF);
-  a[13] = sum;
+  writepacket[13] = sum;
   
   for(int ii = 0; ii < 14; ii++)
   {
-    USART_Transmit_for_1(a[ii]);
-    //Serial.println(a[ii]);
+    USART_Transmit_for_1(writepacket[ii]);
+    //Serial.println(writepacket[ii]);
   }
 }
 
 void bulkRead()
 {
-  a[0] = 0xFF;
-  a[1] = 0xFF;
-  a[2] = 0xFE;
-  a[3] = 0x09;   // length
-  a[4] = 0x92;   
-  a[5] = 0x00;
-  a[6] = 0x02;   // first module data length
-  a[7] = byte(MIDc[0]);   // first module id
-  a[8] = 0x24;   // data starting address
-  a[9] = 0x02;
-  a[10] = byte(MIDc[1]);
-  a[11] = 0x24;
+  writepacket[0] = 0xFF;
+  writepacket[1] = 0xFF;
+  writepacket[2] = 0xFE;
+  writepacket[3] = 0x09;   // length
+  writepacket[4] = 0x92;   
+  writepacket[5] = 0x00;
+  writepacket[6] = 0x02;   // first module data length
+  writepacket[7] = byte(MIDc[0]);   // first module id
+  writepacket[8] = 0x24;   // data starting address
+  writepacket[9] = 0x02;
+  writepacket[10] = byte(MIDc[1]);
+  writepacket[11] = 0x24;
 
   unsigned int sum = 0;
   for(int i = 2; i < 12; i++)
   {
-    sum += a[i];
+    sum += writepacket[i];
   }
   sum = ~byte(sum);
-  a[12] = sum;
+  writepacket[12] = sum;
   digitalWrite(controlpin, HIGH);
     
   for(int ii = 0; ii < 13; ii++)
   {
-    USART_Transmit_for_1(a[ii]);
+    USART_Transmit_for_1(writepacket[ii]);
   }
 
   delayMicroseconds(30);  // 리턴 패킷이 모두 제대로 들어오기 위한 시간 마련
