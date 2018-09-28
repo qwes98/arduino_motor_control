@@ -29,7 +29,7 @@ unsigned int inputFreq[NUMBER_DXL];
 
 // pin number
 char ledPin = 13;
-char controlPin = 4;   // 74ls241 컨트롤 핀
+char controlPin = 4;   // 74ls241 control pin
 
 unsigned int MYUBRR = 0;
 
@@ -139,15 +139,15 @@ void bulkRead()
   }
   sum = ~byte(sum);
   writepacket[12] = sum;
-  digitalWrite(controlPin, HIGH);
+  digitalWrite(controlPin, HIGH);   // 74ls241 Tx mode  
     
   for(int ii = 0; ii < 13; ii++)
   {
     USART_Transmit_for_1(writepacket[ii]);
   }
 
-  delayMicroseconds(30);  // 리턴 패킷이 모두 제대로 들어오기 위한 시간 마련
-  digitalWrite(controlPin, LOW);
+  delayMicroseconds(30);
+  digitalWrite(controlPin, LOW);    //74ls241 Rx mode
 }
 
 void blinkLed()
@@ -186,15 +186,16 @@ void setMode()
         }
       }
       i++;
-    }
-  }
+    } // end if Serial.available
+  } // end for
 }
 
 /* 매트랩으로부터 온 패킷을 읽어 움직일 모터의 ID를 정함 */
 void getMotorID(char ID)
 {
   char MID[2];
-  
+
+  // read packet
   for(int i = 0; i < 2; )
   {
     if(Serial.available() > 0)
@@ -222,7 +223,8 @@ void getMotorID(char ID)
 void getMotorDegree(char ID)
 {
   char MID[4];
-  
+
+  // read packet
   for(int i = 0; i < 4;)
   {
     if(Serial.available() > 0)
@@ -252,7 +254,8 @@ void getMotorDegree(char ID)
 void getMotorFreq(char ID)
 {
   char MID[4];
-  
+
+  // read packet
   for(int i = 0; i < 4; )
   {
     if(Serial.available() > 0)
@@ -347,7 +350,8 @@ void readReturnPacket()
 void storeCurDegree()
 {
   unsigned char sumOfPacket = 0;
-          
+
+  // calculate sum of packets
   for(int i = 1; i < 6; i++)
   {
     sumOfPacket += returnPacketBuf[i];
@@ -381,7 +385,7 @@ void storeCurDegree()
         start_flag = false;
       }
     }
-  }
+  } // end checksum check if
 }
 
 /* 모터로부터 리턴패킷을 받아옴 */
