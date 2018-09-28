@@ -39,6 +39,7 @@ void setup() {
   Serial.begin(1000000);    // matlab <-> arduino
   Serial1.begin(1000000);   // arduino <-> motor
 
+  //interrupt 설정
   noInterrupts();
   TCCR1A = 0; //timer counter control register 초기화
   TCCR1B = 0;
@@ -65,6 +66,7 @@ void setup() {
 
 }
 
+/* 모터 다음값 결정 */
 double calMotorValue(double goal, double fre, int cnt, double current)
 {
   return double(current + ((goal-current)/2.0)*(1-cos((2*3.14/(fre*10.0))*cnt)));
@@ -76,7 +78,7 @@ void USART_Transmit_for_1(unsigned char SEND)
   UDR1 = SEND;
 }
 
-// TODO: refactor from here
+/* 모터에 Syncwrite 패킷을 생성하여 보냄 */
 void writeMotor()
 {
   unsigned char writepacket[20];
@@ -111,6 +113,7 @@ void writeMotor()
   }
 }
 
+/* 모터에 bulkread 패킷을 생성하여 보냄 */
 void bulkRead()
 {
   unsigned char writepacket[20];
@@ -154,6 +157,7 @@ void blinkLed()
   delay(1000); 
 }
 
+/* 매트랩으로부터 값을 받아옴 */
 void data_reading_from_matlab()
 {
   int i;
@@ -290,6 +294,7 @@ void data_reading_from_matlab()
   }
 }
 
+/* 모터로부터 리턴패킷을 받아옴 */
 void data_reading_from_motor_buf()
 {
   if(Serial1.available() > 0)
@@ -357,6 +362,7 @@ void data_reading_from_motor_buf()
   }
 }
 
+/* 매트랩에 모터의 현재 위치 값 보내기 */
 void data_sending_to_matlab()
 {
   for(int i = 0; i < NUMBER_DXL; i++)
@@ -366,6 +372,7 @@ void data_sending_to_matlab()
   send_data_to_matlab = false;
 }
 
+/* 모터 컨트롤을 위한 인터럽트 */
 ISR(TIMER1_COMPA_vect)
 {
   ISRcnt++;
