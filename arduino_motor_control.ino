@@ -25,7 +25,7 @@ unsigned char returnPacketBuf[20];
 // Values from matlab
 unsigned int motorID[NUMBER_DXL] = {1, 2}; 
 unsigned int inputDegree[NUMBER_DXL];
-unsigned int inputFreq[NUMBER_DXL];
+unsigned int inputPeriod[NUMBER_DXL];
 
 // pin number
 char ledPin = 13;
@@ -251,7 +251,7 @@ void getMotorDegree(char ID)
 }
 
 /* 매트랩으로부터 온 패킷을 읽어 제어 주기를 정함 */
-void getMotorFreq(char ID)
+void getMotorPeriod(char ID)
 {
   char MID[4];
 
@@ -277,8 +277,8 @@ void getMotorFreq(char ID)
     idx = 1;
   }
   
-  inputFreq[idx] = (MID[0]*1000) + (MID[1]*100) + (MID[2]*10) + (MID[3]*1);
-  motorCntEnd[idx] = 5 * inputFreq[idx];   // 1 - cos의 반주기
+  inputPeriod[idx] = (MID[0]*1000) + (MID[1]*100) + (MID[2]*10) + (MID[3]*1);
+  motorCntEnd[idx] = 5 * inputPeriod[idx];   // 1 - cos의 반주기
 }
   
 /* 매트랩으로부터 값을 받아옴 */
@@ -311,11 +311,11 @@ void readDataFromMatlab()
     }
     else if(ID == 51 || ID == 54)   // ID1 = 'c' or 'f'
     {
-      getMotorFreq(ID); 
+      getMotorPeriod(ID); 
     }
     /*
-    if(motorID[0] == 1 && inputDegree[0] == 1000 && inputFreq[0] == 1000
-    && motorID[1] == 2 && inputDegree[1] == 2000 && inputFreq[1] == 2000)
+    if(motorID[0] == 1 && inputDegree[0] == 1000 && inputPeriod[0] == 1000
+    && motorID[1] == 2 && inputDegree[1] == 2000 && inputPeriod[1] == 2000)
     {
       blinkLed();
     }
@@ -416,7 +416,7 @@ void calMotorGoal(char motorId)
 {
   motorCnt[motorId]+=5;   // 5씩 증가를 시켜야 함 (이 if문에 5초에 한번씩 들어오기 때문)
   
-  double tmp_goal = calMotorValue(inputDegree[motorId], inputFreq[motorId], 
+  double tmp_goal = calMotorValue(inputDegree[motorId], inputPeriod[motorId], 
                                     motorCnt[motorId], pastDegree[motorId]);
   goalDegree[motorId] = tmp_goal;
 }
