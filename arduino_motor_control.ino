@@ -8,6 +8,7 @@ bool send_data_to_matlab = false;
 bool interrupt_on = true;
 bool infinite_mode = false;       // true: 무한궤적모드, false: 단일궤적모드
 bool start_flag = true;
+bool initialized_motor[NUMBER_DXL] = {false};
 
 // counter
 unsigned long ISRcnt = 0;         // WARNING: ISRcnt를 int로 하면 매트랩 정지 현상 생김
@@ -64,6 +65,18 @@ void setup() {
 
   bulkRead();
 
+}
+
+bool allMotorInitialized()
+{
+  for(int i = 0; i < NUMBER_DXL; i++)
+  {
+    if(initialized_motor[i] == false)
+    {
+      return false;
+    }
+  }
+  return true;
 }
 
 /* 모터 다음값 결정 */
@@ -371,6 +384,7 @@ void storeCurDegree()
       {
         pastDegree[0] = tmp;
         goalDegree[0] = (double)tmp;
+        initialized_motor[0] = true;
       }
     }
     // ID == 2
@@ -382,8 +396,12 @@ void storeCurDegree()
       {
         pastDegree[1] = tmp;
         goalDegree[1] = (double)tmp;
-        start_flag = false;
+        initialized_motor[1] = true;
       }
+    }
+    if(allMotorInitialized())
+    {
+      start_flag = false;
     }
   } // end checksum check if
 }
