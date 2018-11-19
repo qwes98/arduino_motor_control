@@ -80,10 +80,11 @@ bool allMotorInitialized()
 }
 
 /* 모터 다음값 결정 */
-double calMotorValue(double goal, double fre, int cnt, double current)
+// @param period unit-ms
+double calMotorValue(double goal, double period, int cnt, double current)
 {
   // 1-cos 함수 적용
-  return double(current + ((goal-current)/2.0)*(1-cos((2*3.14/(fre*10.0))*cnt)));
+  return double(current + ((goal-current)/2.0)*(1-cos((2*3.14/period)*cnt)));
 }
 
 void USART_Transmit_for_1(unsigned char SEND)
@@ -432,7 +433,7 @@ void sendDataToMatlab()
 /* 모터 순간 목표 위치 계산 */
 void calMotorGoal(char motorId)
 {
-  motorCnt[motorId]+=5;   // 5씩 증가를 시켜야 함 (이 if문에 5초에 한번씩 들어오기 때문)
+  motorCnt[motorId]+=5;   // 5씩 증가를 시켜야 함 (여기에 5ms에 한번씩 들어오기 때문)
   
   double tmp_goal = calMotorValue(inputDegree[motorId], inputPeriod[motorId], 
                                     motorCnt[motorId], pastDegree[motorId]);
