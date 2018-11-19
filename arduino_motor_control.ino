@@ -1,3 +1,9 @@
+/**
+ *  Interface with matlab
+ *  goal position = degree (robot arm angle)
+ *  period = milliseconds
+ */
+
 #define FOSC 16000000 // Frequency Of System Clock
 #define BAUD 1000000  // Baudrate
 
@@ -31,6 +37,11 @@ unsigned int inputPeriod[NUMBER_DXL];
 // pin number
 char ledPin = 13;
 char controlPin = 4;   // 74ls241 control pin
+
+// robot arm angle 0 dxl position
+unsigned int motorZeroPos[NUMBER_DXL] = {1024, 2048};
+
+bool blink_led = false;
 
 unsigned int MYUBRR = 0;
 
@@ -167,9 +178,9 @@ void bulkRead()
 void blinkLed()
 {
   digitalWrite(ledPin, HIGH);
-  delay(1000);
+  delay(1);
   digitalWrite(ledPin, LOW);
-  delay(1000); 
+  delay(1); 
 }
 
 /* 매트랩으로부터 온 패킷을 읽어 모드를 정함 */
@@ -259,7 +270,6 @@ void getMotorDegree(char ID)
   {
     idx = 1;
   }
-
   inputDegree[idx] = (MID[0]*1000) + (MID[1]*100) + (MID[2]*10) + (MID[3]*1);
   motorCnt[idx] = 0;
 }
@@ -292,7 +302,7 @@ void getMotorPeriod(char ID)
   }
   
   inputPeriod[idx] = (MID[0]*1000) + (MID[1]*100) + (MID[2]*10) + (MID[3]*1);
-  motorCntEnd[idx] = 5 * inputPeriod[idx];   // 1 - cos의 반주기
+  motorCntEnd[idx] = inputPeriod[idx] / 2.0;   // 1 - cos의 반주기
 }
   
 /* 매트랩으로부터 값을 받아옴 */
@@ -321,11 +331,11 @@ void readDataFromMatlab()
     }
     else if(ID == 50 || ID == 53)   // ID1 = 'b' or 'e'
     {
-      getMotorDegree(ID);
+      getMotorDegree(ID);   // unit: dxl position
     }
     else if(ID == 51 || ID == 54)   // ID1 = 'c' or 'f'
     {
-      getMotorPeriod(ID); 
+      getMotorPeriod(ID);   // unit: ms
     }
     /*
     if(motorID[0] == 1 && inputDegree[0] == 1000 && inputPeriod[0] == 1000
@@ -440,6 +450,35 @@ void calMotorGoal(char motorId)
   goalDegree[motorId] = tmp_goal;
 }
 
+bool checkGoalValue()
+{
+  if(goalDegree[0] < motorZeroPos[0])
+  {
+    goalDegree[0] = motorZeroPos[0];
+    return false;
+  }
+  else if(goalDegree[0] > motorZeroPos[0] + 2048)
+  {
+    goalDegree[0] = motorZeroPos[0] + 2048;
+    return false;
+  }
+  
+  for(int i = 1; i < NUMBER_DXL; i++)
+  {
+    if(goalDegree[i] < motorZeroPos[i] - 1024)
+    {
+      goalDegree[i] = motorZeroPos[i];
+      return false;
+    }
+    else if(goalDegree[i] > motorZeroPos[i] + 1024)
+    {
+      goalDegree[i] = motorZeroPos[i] + 1024;
+      return false;
+    }
+  }
+  return true;
+}
+
 /* 모터 움직임 */
 void moveMotors()
 {
@@ -466,7 +505,14 @@ void moveMotors()
       }
     } // infinite_mode else end
   } // for loop end
-  syncWrite();
+  if(checkGoalValue()) 
+  {
+    syncWrite();
+  }
+  else
+  {
+    blink_led = true;
+  }
 }
 
 /* 모터 컨트롤을 위한 인터럽트 */
@@ -501,5 +547,11 @@ void loop()
   if(send_data_to_matlab == true)
   {
     sendDataToMatlab();
+  }
+
+  if(blink_led == true)
+  {
+    blinkLed();
+    blink_led = false;
   }
 }
